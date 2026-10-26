@@ -1,10 +1,12 @@
 import os
+import sys
 import argparse
 from dotenv import load_dotenv
 from openai import OpenAI
 
 from prompts import system_prompt
 from functions.call_function import available_functions, call_function
+from config import MAX_ITERATIONS
 
 
 def main():
@@ -34,15 +36,41 @@ def main():
     if args.verbose:
         print(f"User prompt: {args.user_prompt}")
     
-    generate_content(client, messages, args.verbose)
+    iterations = 1
+    for _ in range(MAX_ITERATIONS):
+        # call the model, handle responses, etc.
+        message = generate_message(client, messages, args.verbose)
+        messages.append(message)
+
+        if not message.tool_calls:
+            break
+
+        for tool_call in message.tool_calls:
+            result_message = call_function(tool_call, args.verbose)
+
+            if result_message['content'] is None:
+                raise RuntimeError("Failed tool call.")
+
+            if args.verbose:
+                print(f"-> {result_message['content']}")
+
+            messages.append(result_message)
+
+        iterations += 1
+
+    if iterations == MAX_ITERATIONS:
+        sys.exit("The agent did not reach a conclusion within the maximum number of iterations.")
+
+    print(f"Response: \n{message.content}")
 
 
-def generate_content(client, messages, verbose):
+def generate_message(client, messages, verbose):
     response = client.chat.completions.create(
         model="openrouter/free",
         messages=messages,
         tools=available_functions,
     )
+
     if response.usage is None:
         raise RuntimeError("Failed API request.")
 
@@ -50,23 +78,11 @@ def generate_content(client, messages, verbose):
         print(f"Prompt tokens: {response.usage.prompt_tokens}")
         print(f"Response tokens: {response.usage.completion_tokens}")
 
-    message = response.choices[0].message
+    return response.choices[0].message
 
-    # The idea is that each response from the LLM agent should 
-    # consist of either text or one or more tool calls.
-    if message.tool_calls:
-        for tool_call in message.tool_calls:
-            result_message = call_function(tool_call, verbose)
 
-            if result_message['content'] is None:
-                raise Exception("Tool call failed.")
-
-            if verbose:
-                print(f"-> {result_message['content']}")
-
-    else:
-        print(f"Response: \n{message.content}")
-
+def call_tools(message, messages, verbose):
+    '''Each response from the LLM agent should consist of either text or one or more tool calls.'''
 
 
 if __name__ == "__main__":
