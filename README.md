@@ -1,6 +1,6 @@
-# Agent Boots
+## Agent Boots
 
-## Project Extensions
+### Project Extensions
 
 - Fix harder and more complex bugs
 - Improve system prompt
