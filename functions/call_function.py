@@ -39,8 +39,18 @@ def call_function(tool_call, verbose: bool = False) -> dict:
     # Inject the working_directory argument (the LLM doesn't know about it)
     function_args["working_directory"] = "./calculator"
 
-    return {
-        "role": "tool",
-        "tool_call_id": tool_call.id,
-        "content": function_map[function_name](**function_args),
-    }
+    try:
+        result = function_map[function_name](**function_args)
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": result,
+        }
+    except TypeError as e:
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": f"Error: Function {function_name} has failed. {e}",
+        }
+
+
