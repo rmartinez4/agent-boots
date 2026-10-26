@@ -1,11 +1,10 @@
 import os
 import argparse
-import json
 from dotenv import load_dotenv
 from openai import OpenAI
 
 from prompts import system_prompt
-from functions.call_function import available_functions
+from functions.call_function import available_functions, call_function
 
 
 def main():
@@ -57,8 +56,14 @@ def generate_content(client, messages, verbose):
     # consist of either text or one or more tool calls.
     if message.tool_calls:
         for tool_call in message.tool_calls:
-            function_args = json.loads(tool_call.function.arguments or "{}")
-            print(f"Calling function: {tool_call.function.name}({function_args})")
+            result_message = call_function(tool_call, verbose)
+
+            if result_message['content'] is None:
+                raise Exception("Tool call failed.")
+
+            if verbose:
+                print(f"-> {result_message['content']}")
+
     else:
         print(f"Response: \n{message.content}")
 
